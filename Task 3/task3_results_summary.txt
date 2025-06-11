@@ -1,0 +1,20 @@
+TASK 3 RESULTS SUMMARY
+======================
+
+Individual Digit Accuracies:
+First digit: 0.9939
+Second digit: 0.9830
+Third digit: 0.9792
+
+Overall Sequence Accuracy: 0.9567
+
+F1 Scores (macro):
+First digit: 0.7953
+Second digit: 0.9816
+Third digit: 0.9785
+
+Improvement over Task 2 CNN model:
+First digit accuracy improvement: 0.09%
+Second digit accuracy improvement: 88.20%
+Third digit accuracy improvement: 89.22%
+Sequence accuracy improvement: 94.47%

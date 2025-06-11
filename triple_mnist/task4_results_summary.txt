@@ -1,0 +1,15 @@
+- TASK 4: MODEL ENHANCEMENT RESULTS
+Enhancement Techniques Applied:
+1. Data Augmentation:
+   - Rotation range: ±10 degrees
+   - Width/height shifts: ±10%
+   - Zoom range: ±10%
+
+2. Enhanced CNN Architecture:
+   - Increased model complexity (more filters and layers)
+   - Added batch normalization for training stability
+   - Increased dropout for better regularization
+   - Learning rate scheduling for more effective training
+
+Performance Comparison:
+Individual Digit Accuracies:

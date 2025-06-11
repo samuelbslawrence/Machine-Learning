@@ -1,0 +1,38 @@
+TASK 4: MODEL ENHANCEMENT RESULTS
+================================
+
+Enhancement Techniques Applied:
+1. Data Augmentation:
+   - Rotation range: ±10 degrees
+   - Width/height shifts: ±10%
+   - Zoom range: ±10%
+
+2. Enhanced CNN Architecture:
+   - Increased model complexity (more filters and layers)
+   - Added batch normalization for training stability
+   - Increased dropout for better regularization
+   - Learning rate scheduling for more effective training
+
+Performance Comparison:
+----------------------
+Individual Digit Accuracies:
+
+
+
+Dataset Information:
+------------------
+Number of training images: 64000
+Image dimensions: (84, 84)
+Number of unique label combinations: 640
+
+Distribution of first digits:
+  Digit 0: 6300 images
+  Digit 1: 6600 images
+  Digit 2: 7300 images
+  Digit 3: 6300 images
+  Digit 4: 5000 images
+  Digit 5: 6100 images
+  Digit 6: 6700 images
+  Digit 7: 6800 images
+  Digit 8: 6300 images
+  Digit 9: 6600 images

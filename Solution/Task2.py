@@ -5,345 +5,307 @@ from PIL import Image
 import glob
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.decomposition import PCA
-from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
+from sklearn.metrics import accuracy_score, confusion_matrix
 import tensorflow as tf
 from tensorflow.keras import layers, models, optimizers
 import seaborn as sns
-import time
-from tqdm import tqdm
-import re
 
-# Define dataset directories
-base_dir = 'C:\\Users\\samue\\OneDrive\\Documents\\Github\\GitHub\\Machine-Learning\\triple_mnist'
-train_dir = os.path.join(base_dir, 'train')
-val_dir = os.path.join(base_dir, 'val')
-test_dir = os.path.join(base_dir, 'test')
+# - PATH SETUP
+# Dynamically find the base path from the current script location
+script_dir = os.path.abspath(os.path.dirname(__file__))
+while os.path.basename(script_dir) != "Machine-Learning":
+    parent = os.path.dirname(script_dir)
+    if parent == script_dir:
+        raise FileNotFoundError(
+            "Could not locate 'Machine-Learning' directory in path tree."
+        )
+    script_dir = parent
 
-# Define save directory for plots and outputs
-save_dir = os.path.join(base_dir, 'Task 2 Outputs')
+# Define dataset and save directories
+base_dir = os.path.join(script_dir, "triple_mnist")
+train_dir = os.path.join(base_dir, "train")
+val_dir = os.path.join(base_dir, "val")
+test_dir = os.path.join(base_dir, "test")
+
+# Create directory to save outputs
+save_dir = os.path.join(script_dir, "Task 2")
 os.makedirs(save_dir, exist_ok=True)
 
-# Function to extract the individual digits from a three-digit label
+# - LOAD TRAINING DATA
+# Extract the individual digits from the directory name
+print("\n- LOADING DATA")
 def extract_digits(label):
-    """Convert a label like '123' to a tuple of ints (1, 2, 3)"""
-    return tuple(int(digit) for digit in label)
+    return tuple(map(int, label))
 
-# Function to load and preprocess images from a directory
-def load_data_with_individual_digits(directory, flatten=True, max_samples=None):
-    """Load data with separate labels for each digit position"""
-    images = []
-    digit1_labels = []
-    digit2_labels = []
-    digit3_labels = []
-    full_labels = []
-    
-    print(f"Scanning directory: {directory}")
-    label_dirs = [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d))]
-    
-    if not label_dirs:
-        print(f"No subdirectories found in {directory}. Please check the directory path.")
-        return np.array([]), np.array([]), np.array([]), np.array([]), np.array([])
-    
-    print(f"Found {len(label_dirs)} label directories")
-    
-    sample_count = 0
-    pbar = tqdm(sorted(label_dirs), desc="Loading classes")
-    for label in pbar:
-        label_path = os.path.join(directory, label)
-        image_paths = glob.glob(os.path.join(label_path, '*.png')) + glob.glob(os.path.join(label_path, '*.jpg'))
-        
-        try:
-            d1, d2, d3 = extract_digits(label)
-        except ValueError:
-            print(f"Warning: Label {label} does not contain exactly three digits. Skipping.")
+# Load image data and labels from the specified directory
+def load_data(dir, flatten=True, max_samples=None):
+    print(f"Loading data from: {dir}")
+    images, d1, d2, d3, full = [], [], [], [], []
+    for label in sorted(os.listdir(dir)):
+        path = os.path.join(dir, label)
+        if not os.path.isdir(path):
             continue
-            
-        pbar.set_description(f"Loading class {label} ({len(image_paths)} images)")
-        
-        for img_path in sorted(image_paths):
-            try:
-                img = Image.open(img_path)
-                if img.mode != 'L':
-                    img = img.convert('L')
-                img_array = np.array(img)
-                
-                if img_array.shape != (84, 84):
-                    print(f"Warning: Image {img_path} has unexpected dimensions {img_array.shape}. Expected (84, 84). Skipping.")
-                    continue
-                
-                img_array = img_array / 255.0
-                
-                if flatten:
-                    img_array = img_array.flatten()
-                    
-                images.append(img_array)
-                digit1_labels.append(d1)
-                digit2_labels.append(d2)
-                digit3_labels.append(d3)
-                full_labels.append(label)
-                
-                sample_count += 1
-                if max_samples is not None and sample_count >= max_samples:
-                    pbar.set_description(f"Reached max samples: {max_samples}")
-                    break
-            except Exception as e:
-                print(f"Error processing image {img_path}: {e}")
+        try:
+            a, b, c = extract_digits(label)
+        except:
+            print(f"Skipping invalid label: {label}")
+            continue
+        for img_path in sorted(glob.glob(os.path.join(path, "*.png"))):
+            img = Image.open(img_path).convert("L")
+            if img.size != (84, 84):
                 continue
-        
-        if max_samples is not None and sample_count >= max_samples:
+            arr = np.array(img) / 255.0
+            images.append(arr.flatten() if flatten else arr)
+            d1.append(a)
+            d2.append(b)
+            d3.append(c)
+            full.append(label)
+            if max_samples and len(images) >= max_samples:
+                break
+        if max_samples and len(images) >= max_samples:
             break
-    
-    print(f"Successfully loaded {len(images)} images")
-    return np.array(images), np.array(digit1_labels), np.array(digit2_labels), np.array(digit3_labels), np.array(full_labels)
+    print(f"Loaded {len(images)} samples from: {dir}")
+    return np.array(images), np.array(d1), np.array(d2), np.array(d3), np.array(full)
 
-# Load the datasets
-print("\n- LOADING DATASETS")
-print("Loading and preprocessing datasets...")
-X_train, y_train_d1, y_train_d2, y_train_d3, y_train_full = load_data_with_individual_digits(train_dir, flatten=True, max_samples=30000)
-X_val, y_val_d1, y_val_d2, y_val_d3, y_val_full = load_data_with_individual_digits(val_dir, flatten=True, max_samples=8000)
-X_test, y_test_d1, y_test_d2, y_test_d3, y_test_full = load_data_with_individual_digits(test_dir, flatten=True, max_samples=8000)
+# - LOADING DATASETS
+X_train, y1_train, y2_train, y3_train, _ = load_data(train_dir, True, 30000)
+X_val, y1_val, y2_val, y3_val, _ = load_data(val_dir, True, 8000)
+X_test, y1_test, y2_test, y3_test, _ = load_data(test_dir, True, 8000)
 
-# Print dataset information
+# Print dataset info
 print("\n- DATASET INFORMATION")
 print(f"Training set: {X_train.shape[0]} images")
 print(f"Validation set: {X_val.shape[0]} images")
 print(f"Test set: {X_test.shape[0]} images")
 print(f"Image vector size: {X_train.shape[1]}")
-print(f"Unique values for first digit: {np.unique(y_train_d1)}")
-print(f"Unique values for second digit: {np.unique(y_train_d2)}")
-print(f"Unique values for third digit: {np.unique(y_train_d3)}")
+print(f"Unique values for first digit: {np.unique(y1_train)}")
+print(f"Unique values for second digit: {np.unique(y2_train)}")
+print(f"Unique values for third digit: {np.unique(y3_train)}")
 
-# Visualize some examples to verify the data
-print("\n- DATA VISUALIZATION")
-print("Close image to continue.")
-plt.figure(figsize=(15, 6))
+# - VISUALIZE SAMPLE IMAGES
+# Show 5 example images from the training set
+plt.figure(figsize=(15, 4))
 for i in range(5):
-    if i < len(X_train):
-        plt.subplot(1, 5, i+1)
-        img = X_train[i].reshape(84, 84)
-        plt.imshow(img, cmap='gray')
-        plt.title(f"Label: {y_train_d1[i]}{y_train_d2[i]}{y_train_d3[i]}")
-        plt.axis('off')
+    img = X_train[i].reshape(84, 84)
+    plt.subplot(1, 5, i + 1)
+    plt.imshow(img, cmap="gray")
+    plt.title(f"Label: {y1_train[i]}{y2_train[i]}{y3_train[i]}")
+    plt.axis("off")
 plt.tight_layout()
-plt.savefig(os.path.join(save_dir, 'sample_images.png'))
-plt.show()
+plt.savefig(os.path.join(save_dir, "sample_images.png"))
+plt.close()
 
-# Model 1: Decision Tree with PCA
+# - PCA + DECISION TREE
 print("\n- DECISION TREE MODEL")
 
-print("Applying PCA for dimensionality reduction...")
-n_components = 100
-pca = PCA(n_components=n_components)
-X_train_pca = pca.fit_transform(X_train)
-X_val_pca = pca.transform(X_val)
-X_test_pca = pca.transform(X_test)
+# Apply PCA to reduce feature dimensionality
+print("Applying PCA for dimensionality reduction")
+pca = PCA(n_components=100).fit(X_train)
+X_train_pca, X_val_pca, X_test_pca = (
+    pca.transform(X_train),
+    pca.transform(X_val),
+    pca.transform(X_test),
+)
 print(f"Reduced feature dimension from {X_train.shape[1]} to {X_train_pca.shape[1]}")
 print(f"Explained variance ratio: {np.sum(pca.explained_variance_ratio_):.4f}")
 
-dt_models = []
-dt_accuracies = []
+# Train a decision tree for each digit position
+def train_dt(X_train, y_train, X_val, y_val, X_test, y_test, digit_position):
+    print(f"\nTraining Decision Tree for digit position {digit_position+1}")
+    model = DecisionTreeClassifier(max_depth=20, random_state=42).fit(X_train, y_train)
+    val_acc = accuracy_score(y_val, model.predict(X_val))
+    test_acc = accuracy_score(y_test, model.predict(X_test))
+    print(f"Validation accuracy for digit {digit_position+1}: {val_acc:.4f}")
+    print(f"Test accuracy for digit {digit_position+1}: {test_acc:.4f}")
+    return model, test_acc
 
-for digit_position, (y_train_digit, y_val_digit, y_test_digit) in enumerate(
-    [(y_train_d1, y_val_d1, y_test_d1), 
-     (y_train_d2, y_val_d2, y_test_d2), 
-     (y_train_d3, y_val_d3, y_test_d3)]):
-    
-    print(f"\nTraining Decision Tree for digit position {digit_position+1}...")
-    
-    dt_model = DecisionTreeClassifier(max_depth=20, random_state=42)
-    dt_model.fit(X_train_pca, y_train_digit)
-    dt_models.append(dt_model)
-    
-    y_val_pred = dt_model.predict(X_val_pca)
-    val_accuracy = accuracy_score(y_val_digit, y_val_pred)
-    print(f"Validation accuracy for digit {digit_position+1}: {val_accuracy:.4f}")
-    
-    y_test_pred = dt_model.predict(X_test_pca)
-    test_accuracy = accuracy_score(y_test_digit, y_test_pred)
-    dt_accuracies.append(test_accuracy)
-    print(f"Test accuracy for digit {digit_position+1}: {test_accuracy:.4f}")
+dt_models, dt_accuracies = [], []
+for i, (yt, yv, yte) in enumerate(
+    [
+        (y1_train, y1_val, y1_test),
+        (y2_train, y2_val, y2_test),
+        (y3_train, y3_val, y3_test),
+    ]
+):
+    m, acc = train_dt(X_train_pca, yt, X_val_pca, yv, X_test_pca, yte, i)
+    dt_models.append(m)
+    dt_accuracies.append(acc)
 
-dt_test_preds = [dt_models[i].predict(X_test_pca) for i in range(3)]
-dt_correct_sequences = np.sum([
-    (dt_test_preds[0][i] == y_test_d1[i]) & 
-    (dt_test_preds[1][i] == y_test_d2[i]) & 
-    (dt_test_preds[2][i] == y_test_d3[i]) 
-    for i in range(len(X_test_pca))
-])
-dt_sequence_accuracy = dt_correct_sequences / len(X_test_pca)
-print(f"\nDecision Tree overall sequence accuracy: {dt_sequence_accuracy:.4f}")
+# Compute sequence accuracy for all digits
+dt_preds = [m.predict(X_test_pca) for m in dt_models]
+dt_seq_acc = np.mean(
+    [
+        (a == y1_test[i]) and (b == y2_test[i]) and (c == y3_test[i])
+        for i, (a, b, c) in enumerate(zip(*dt_preds))
+    ]
+)
 
+# Print summary results for Decision Tree
+print(f"\nDecision Tree overall sequence accuracy: {dt_seq_acc:.4f}")
 print("\n- DECISION TREE SUMMARY")
-print(f"Per-digit test accuracies: {['{:.4f}'.format(a) for a in dt_accuracies]}")
-print(f"Sequence accuracy: {dt_sequence_accuracy:.4f}")
+print(f"Per-digit test accuracies: {[f'{a:.4f}' for a in dt_accuracies]}")
+print(f"Sequence accuracy: {dt_seq_acc:.4f}")
 
-# Model 2: CNN
+# - CNN
 print("\n- CNN MODEL")
 
-X_train_cnn, y_train_d1_cnn, y_train_d2_cnn, y_train_d3_cnn, _ = load_data_with_individual_digits(
-    train_dir, flatten=False, max_samples=30000)
-X_val_cnn, y_val_d1_cnn, y_val_d2_cnn, y_val_d3_cnn, _ = load_data_with_individual_digits(
-    val_dir, flatten=False, max_samples=8000)
-X_test_cnn, y_test_d1_cnn, y_test_d2_cnn, y_test_d3_cnn, _ = load_data_with_individual_digits(
-    test_dir, flatten=False, max_samples=8000)
-
-X_train_cnn = X_train_cnn.reshape(-1, 84, 84, 1)
-X_val_cnn = X_val_cnn.reshape(-1, 84, 84, 1)
-X_test_cnn = X_test_cnn.reshape(-1, 84, 84, 1)
-
-def create_digit_recognition_cnn():
-    model = models.Sequential([
-        layers.Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(84, 84, 1)),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2, 2)),
-        
-        layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2, 2)),
-        
-        layers.Conv2D(128, (3, 3), activation='relu', padding='same'),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2, 2)),
-        
-        layers.Flatten(),
-        layers.Dense(128, activation='relu'),
-        layers.Dropout(0.5),
-        layers.Dense(10, activation='softmax')
-    ])
-    
-    model.compile(
-        optimizer=optimizers.Adam(learning_rate=0.001),
-        loss='sparse_categorical_crossentropy',
-        metrics=['accuracy']
+# Build a CNN model
+def cnn_model():
+    model = models.Sequential(
+        [
+            layers.Conv2D(
+                32, 3, activation="relu", padding="same", input_shape=(84, 84, 1)
+            ),
+            layers.BatchNormalization(),
+            layers.MaxPooling2D(2),
+            layers.Conv2D(64, 3, activation="relu", padding="same"),
+            layers.BatchNormalization(),
+            layers.MaxPooling2D(2),
+            layers.Conv2D(128, 3, activation="relu", padding="same"),
+            layers.BatchNormalization(),
+            layers.MaxPooling2D(2),
+            layers.Flatten(),
+            layers.Dense(128, activation="relu"),
+            layers.Dropout(0.5),
+            layers.Dense(10, activation="softmax"),
+        ]
     )
-    
+    model.compile(
+        optimizer=optimizers.Adam(0.001),
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"],
+    )
     return model
 
-cnn_models = []
-cnn_accuracies = []
-digit_names = ["first", "second", "third"]
+# Reload data for CNN input (unflattened and reshaped)
+X_train_cnn, y1_t, y2_t, y3_t, _ = load_data(train_dir, False, 30000)
+X_val_cnn, y1_v, y2_v, y3_v, _ = load_data(val_dir, False, 8000)
+X_test_cnn, y1_te, y2_te, y3_te, _ = load_data(test_dir, False, 8000)
+X_train_cnn, X_val_cnn, X_test_cnn = [
+    x.reshape(-1, 84, 84, 1) for x in [X_train_cnn, X_val_cnn, X_test_cnn]
+]
 
-for digit_position, (y_train_digit, y_val_digit, y_test_digit) in enumerate([
-    (y_train_d1_cnn, y_val_d1_cnn, y_test_d1_cnn),
-    (y_train_d2_cnn, y_val_d2_cnn, y_test_d2_cnn),
-    (y_train_d3_cnn, y_val_d3_cnn, y_test_d3_cnn)
-]):
-    print(f"\nTraining CNN for {digit_names[digit_position]} digit...")
-    
-    model = create_digit_recognition_cnn()
-    
-    callbacks = [
-        tf.keras.callbacks.EarlyStopping(
-            monitor='val_accuracy',
-            patience=3,
-            restore_best_weights=True
-        )
-    ]
-    
+# Train a CNN per digit and store results
+cnn_accuracies, cnn_preds, histories = [], [], []
+for i, (yt, yv, yte) in enumerate(
+    [(y1_t, y1_v, y1_te), (y2_t, y2_v, y2_te), (y3_t, y3_v, y3_te)]
+):
+    print(f"\n- TRAINING CNN FOR DIGIT POSITION {i+1}")
+    model = cnn_model()
     history = model.fit(
-        X_train_cnn, y_train_digit,
+        X_train_cnn,
+        yt,
         epochs=10,
         batch_size=64,
-        validation_data=(X_val_cnn, y_val_digit),
-        callbacks=callbacks,
-        verbose=1
+        validation_data=(X_val_cnn, yv),
+        verbose=1,
     )
-    
-    cnn_models.append(model)
-    
-    test_loss, test_accuracy = model.evaluate(X_test_cnn, y_test_digit, verbose=0)
-    cnn_accuracies.append(test_accuracy)
-    print(f"Test accuracy for {digit_names[digit_position]} digit: {test_accuracy:.4f}")
-    
-    plt.figure(figsize=(12, 4))
-    plt.subplot(1, 2, 1)
-    plt.plot(history.history['accuracy'], label='Training')
-    plt.plot(history.history['val_accuracy'], label='Validation')
-    plt.title(f'Accuracy - {digit_names[digit_position].capitalize()} Digit')
-    plt.xlabel('Epoch')
-    plt.ylabel('Accuracy')
-    plt.legend()
-    
-    plt.subplot(1, 2, 2)
-    plt.plot(history.history['loss'], label='Training')
-    plt.plot(history.history['val_loss'], label='Validation')
-    plt.title(f'Loss - {digit_names[digit_position].capitalize()} Digit')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.legend()
-    
-    plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, f'cnn_learning_curves_digit{digit_position+1}.png'))
-    plt.show()
+    acc = model.evaluate(X_test_cnn, yte, verbose=0)[1]
+    print(f"Test accuracy for digit {i+1}: {acc:.4f}")
+    pred = np.argmax(model.predict(X_test_cnn, verbose=0), axis=1)
+    cnn_accuracies.append(acc)
+    cnn_preds.append(pred)
+    histories.append(history)
 
-cnn_test_preds = [np.argmax(cnn_models[i].predict(X_test_cnn), axis=1) for i in range(3)]
-cnn_correct_sequences = np.sum([
-    (cnn_test_preds[0][i] == y_test_d1_cnn[i]) & 
-    (cnn_test_preds[1][i] == y_test_d2_cnn[i]) & 
-    (cnn_test_preds[2][i] == y_test_d3_cnn[i]) 
-    for i in range(len(X_test_cnn))
-])
-cnn_sequence_accuracy = cnn_correct_sequences / len(X_test_cnn)
-print(f"\nCNN overall sequence accuracy: {cnn_sequence_accuracy:.4f}")
+# Compute sequence accuracy for CNN
+cnn_seq_acc = np.mean(
+    [
+        (a == y1_te[i]) and (b == y2_te[i]) and (c == y3_te[i])
+        for i, (a, b, c) in enumerate(zip(*cnn_preds))
+    ]
+)
 
+# Print summary results for CNN
+print(f"\nCNN overall sequence accuracy: {cnn_seq_acc:.4f}")
 print("\n- CNN SUMMARY")
-print(f"Per-digit test accuracies: {['{:.4f}'.format(a) for a in cnn_accuracies]}")
-print(f"Sequence accuracy: {cnn_sequence_accuracy:.4f}")
+print(f"Per-digit test accuracies: {[f'{a:.4f}' for a in cnn_accuracies]}")
+print(f"Sequence accuracy: {cnn_seq_acc:.4f}")
 
-# Model Comparison and Visualization
-print("\n- MODEL COMPARISON")
+# - LEARNING CURVES
+# Save learning curves for each digit model
+for i, history in enumerate(histories):
+    plt.figure(figsize=(10, 4))
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history["accuracy"], label="Train")
+    plt.plot(history.history["val_accuracy"], label="Val")
+    plt.title(f"Accuracy - Digit {i+1}")
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.legend()
 
-plt.figure(figsize=(10, 6))
-x = np.arange(3)
-width = 0.35
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history["loss"], label="Train")
+    plt.plot(history.history["val_loss"], label="Val")
+    plt.title(f"Loss - Digit {i+1}")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
 
-plt.bar(x - width/2, dt_accuracies, width, label='Decision Tree')
-plt.bar(x + width/2, cnn_accuracies, width, label='CNN')
-plt.xticks(x, ["First Digit", "Second Digit", "Third Digit"])
-plt.ylabel('Accuracy')
-plt.title('Per-Digit Accuracy Comparison')
-plt.legend()
-plt.ylim(0, 1)
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_dir, f"cnn_learning_curves_digit{i+1}.png"))
+    plt.close()
 
-for i, v in enumerate(dt_accuracies):
-    plt.text(i - width/2, v + 0.02, f'{v:.3f}', ha='center')
-for i, v in enumerate(cnn_accuracies):
-    plt.text(i + width/2, v + 0.02, f'{v:.3f}', ha='center')
+# - BAR CHARTS AND CONFUSION MATRICES
+# Save bar chart comparing per-digit model accuracy
+def save_bar_chart(x_labels, dt_vals, cnn_vals, title, ylabel, filename):
+    x = np.arange(len(x_labels))
+    width = 0.35
+    plt.figure(figsize=(10, 6))
+    plt.bar(x - width / 2, dt_vals, width, label="Decision Tree")
+    plt.bar(x + width / 2, cnn_vals, width, label="CNN")
+    plt.xticks(x, x_labels)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.ylim(0, 1)
+    for i, v in enumerate(dt_vals):
+        plt.text(i - width / 2, v + 0.02, f"{v:.3f}", ha="center")
+    for i, v in enumerate(cnn_vals):
+        plt.text(i + width / 2, v + 0.02, f"{v:.3f}", ha="center")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_dir, filename))
+    plt.close()
 
-plt.tight_layout()
-plt.savefig(os.path.join(save_dir, 'per_digit_accuracy.png'))
-plt.show()
+# Save sequence accuracy comparison bar
+def save_sequence_accuracy_bar():
+    plt.figure(figsize=(6, 5))
+    accs = [dt_seq_acc, cnn_seq_acc]
+    models = ["Decision Tree", "CNN"]
+    plt.bar(models, accs, color=["blue", "orange"])
+    plt.ylabel("Accuracy")
+    plt.title("Sequence Accuracy Comparison")
+    for i, v in enumerate(accs):
+        plt.text(i, v + 0.002, f"{v:.4f}", ha="center")
+    plt.ylim(0.0, 0.1)
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_dir, "sequence_accuracy.png"))
+    plt.close()
 
-plt.figure(figsize=(8, 6))
-sequence_accuracies = [dt_sequence_accuracy, cnn_sequence_accuracy]
-plt.bar(["Decision Tree", "CNN"], sequence_accuracies)
-plt.ylabel('Accuracy')
-plt.title('Overall Sequence Accuracy Comparison')
-plt.ylim(0, 1)
+# Save confusion matrices for digit 1
+def save_confusion_matrices():
+    cm_dt = confusion_matrix(y1_test, dt_preds[0])
+    cm_cnn = confusion_matrix(y1_te, cnn_preds[0])
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
+    sns.heatmap(cm_dt, annot=True, fmt="d", cmap="Blues", ax=ax1)
+    ax1.set_title("DT Confusion Matrix - Digit 1")
+    sns.heatmap(cm_cnn, annot=True, fmt="d", cmap="Blues", ax=ax2)
+    ax2.set_title("CNN Confusion Matrix - Digit 1")
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_dir, "confusion_matrices.png"))
+    plt.close()
 
-for i, v in enumerate(sequence_accuracies):
-    plt.text(i, v + 0.02, f'{v:.3f}', ha='center')
+# Generate final outputs
+save_bar_chart(
+    ["Digit 1", "Digit 2", "Digit 3"],
+    dt_accuracies,
+    cnn_accuracies,
+    "Per-Digit Accuracy Comparison",
+    "Accuracy",
+    "per_digit_accuracy.png",
+)
+save_sequence_accuracy_bar()
+save_confusion_matrices()
 
-plt.tight_layout()
-plt.savefig(os.path.join(save_dir, 'sequence_accuracy.png'))
-plt.show()
-
-digit_pos = 0
-cm_dt = confusion_matrix(y_test_d1, dt_test_preds[digit_pos])
-cm_cnn = confusion_matrix(y_test_d1_cnn, cnn_test_preds[digit_pos])
-
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
-
-sns.heatmap(cm_dt, annot=True, fmt='d', cmap='Blues', ax=ax1)
-ax1.set_title('Decision Tree Confusion Matrix - First Digit')
-ax1.set_xlabel('Predicted')
-ax1.set_ylabel('True')
-
-sns.heatmap(cm_cnn, annot=True, fmt='d', cmap='Blues', ax=ax2)
-ax2.set_title('CNN Confusion Matrix - First Digit')
-ax2.set_xlabel('Predicted')
-ax2.set_ylabel('True')
-
-plt.tight_layout()
-plt.savefig(os.path.join(save_dir, 'confusion_matrices.png'))
-plt.show()
+# - COMPLETION
+# Notify user of save location
+print("\nAll plots and visual outputs saved to:", save_dir)

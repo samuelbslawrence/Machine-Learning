@@ -15,7 +15,9 @@ script_dir = os.path.abspath(os.path.dirname(__file__))
 while os.path.basename(script_dir) != "Machine-Learning":
     parent = os.path.dirname(script_dir)
     if parent == script_dir:
-        raise FileNotFoundError("Could not locate 'Machine-Learning' directory in path tree.")
+        raise FileNotFoundError(
+            "Could not locate 'Machine-Learning' directory in path tree."
+        )
     script_dir = parent
 
 # Define dataset and output directories
@@ -51,7 +53,9 @@ def load_split_images(directory, max_samples=None):
     part1, part2, part3, labels = [], [], [], []
     count = 0
 
-    label_dirs = sorted([d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d))])
+    label_dirs = sorted(
+        [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d))]
+    )
     for label in label_dirs:
         try:
             d1, d2, d3 = extract_digits(label)
@@ -97,32 +101,46 @@ print(f"Split image size: {X_train_p1[0].shape}")
 
 # - PREPROCESSING
 # Add channel dimension for CNN (shape becomes: [batch, height, width, 1])
-for arr in [X_train_p1, X_train_p2, X_train_p3,
-            X_val_p1, X_val_p2, X_val_p3,
-            X_test_p1, X_test_p2, X_test_p3]:
+for arr in [
+    X_train_p1,
+    X_train_p2,
+    X_train_p3,
+    X_val_p1,
+    X_val_p2,
+    X_val_p3,
+    X_test_p1,
+    X_test_p2,
+    X_test_p3,
+]:
     arr.shape = (*arr.shape, 1)
 
 # - CNN MODEL
 # Define a CNN suitable for digit recognition on a 28x84 grayscale input
 def cnn_model(input_shape):
-    model = models.Sequential([
-        layers.Conv2D(32, 3, activation="relu", padding="same", input_shape=input_shape),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D(2),
-        layers.Conv2D(64, 3, activation="relu", padding="same"),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D(2),
-        layers.Conv2D(64, 3, activation="relu", padding="same"),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D(2),
-        layers.Flatten(),
-        layers.Dense(64, activation="relu"),
-        layers.Dropout(0.3),
-        layers.Dense(10, activation="softmax")
-    ])
-    model.compile(optimizer=optimizers.Adam(0.001),
-                  loss="sparse_categorical_crossentropy",
-                  metrics=["accuracy"])
+    model = models.Sequential(
+        [
+            layers.Conv2D(
+                32, 3, activation="relu", padding="same", input_shape=input_shape
+            ),
+            layers.BatchNormalization(),
+            layers.MaxPooling2D(2),
+            layers.Conv2D(64, 3, activation="relu", padding="same"),
+            layers.BatchNormalization(),
+            layers.MaxPooling2D(2),
+            layers.Conv2D(64, 3, activation="relu", padding="same"),
+            layers.BatchNormalization(),
+            layers.MaxPooling2D(2),
+            layers.Flatten(),
+            layers.Dense(64, activation="relu"),
+            layers.Dropout(0.3),
+            layers.Dense(10, activation="softmax"),
+        ]
+    )
+    model.compile(
+        optimizer=optimizers.Adam(0.001),
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"],
+    )
     return model
 
 # - TRAINING MODELS
@@ -132,7 +150,7 @@ digit_names = ["Digit 1", "Digit 2", "Digit 3"]
 data_parts = [
     (X_train_p1, y_train_d1, X_val_p1, y_val_d1, X_test_p1, y_test_d1),
     (X_train_p2, y_train_d2, X_val_p2, y_val_d2, X_test_p2, y_test_d2),
-    (X_train_p3, y_train_d3, X_val_p3, y_val_d3, X_test_p3, y_test_d3)
+    (X_train_p3, y_train_d3, X_val_p3, y_val_d3, X_test_p3, y_test_d3),
 ]
 models_trained, histories, predictions, test_accuracies = [], [], [], []
 
@@ -140,9 +158,7 @@ for i, (X_tr, y_tr, X_val, y_val, X_te, y_te) in enumerate(data_parts):
     print(f"Training model for {digit_names[i]}")
     model = cnn_model(X_tr.shape[1:])
     history = model.fit(
-        X_tr, y_tr, epochs=10, batch_size=64,
-        validation_data=(X_val, y_val),
-        verbose=1
+        X_tr, y_tr, epochs=10, batch_size=64, validation_data=(X_val, y_val), verbose=1
     )
 
     acc = model.evaluate(X_te, y_te, verbose=0)[1]
@@ -157,16 +173,16 @@ for i, (X_tr, y_tr, X_val, y_val, X_te, y_te) in enumerate(data_parts):
     # Save learning curves for each digit model
     plt.figure(figsize=(10, 4))
     plt.subplot(1, 2, 1)
-    plt.plot(history.history['accuracy'], label="Train")
-    plt.plot(history.history['val_accuracy'], label="Val")
+    plt.plot(history.history["accuracy"], label="Train")
+    plt.plot(history.history["val_accuracy"], label="Val")
     plt.title(f"Accuracy - {digit_names[i]}")
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
     plt.legend()
 
     plt.subplot(1, 2, 2)
-    plt.plot(history.history['loss'], label="Train")
-    plt.plot(history.history['val_loss'], label="Val")
+    plt.plot(history.history["loss"], label="Train")
+    plt.plot(history.history["val_loss"], label="Val")
     plt.title(f"Loss - {digit_names[i]}")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
@@ -178,17 +194,21 @@ for i, (X_tr, y_tr, X_val, y_val, X_te, y_te) in enumerate(data_parts):
 # - SEQUENCE ACCURACY
 # Check how many predictions match all three digits at once (full label accuracy)
 print("\n- EVALUATING COMBINED MODEL")
-seq_acc = np.mean([
-    (a == y_test_d1[i]) and (b == y_test_d2[i]) and (c == y_test_d3[i])
-    for i, (a, b, c) in enumerate(zip(*predictions))
-])
+seq_acc = np.mean(
+    [
+        (a == y_test_d1[i]) and (b == y_test_d2[i]) and (c == y_test_d3[i])
+        for i, (a, b, c) in enumerate(zip(*predictions))
+    ]
+)
 print(f"Overall sequence accuracy: {seq_acc:.4f}")
 
 # - COMPARISON WITH TASK 2
 # Compare per-digit and sequence performance with baseline from Task 2
 task2_accuracies = [0.993, 0.101, 0.087]
 task2_seq = 0.012
-improvements = [(new - old) * 100 for new, old in zip(test_accuracies, task2_accuracies)]
+improvements = [
+    (new - old) * 100 for new, old in zip(test_accuracies, task2_accuracies)
+]
 seq_improvement = (seq_acc - task2_seq) * 100
 
 print("\n- COMPARISON WITH TASK 2")
@@ -202,15 +222,25 @@ plt.figure(figsize=(12, 5))
 x = np.arange(3)
 width = 0.35
 plt.subplot(1, 2, 1)
-plt.bar(x - width/2, task2_accuracies, width, label="Task 2 CNN")
-plt.bar(x + width/2, test_accuracies, width, label="Task 3 Split CNN")
+plt.bar(x - width / 2, task2_accuracies, width, label="Task 2 CNN")
+plt.bar(x + width / 2, test_accuracies, width, label="Task 3 Split CNN")
 plt.xticks(x, digit_names)
 plt.ylabel("Accuracy")
 plt.title("Digit Accuracy Comparison")
 plt.legend()
 for i in range(3):
-    plt.text(i - width/2, task2_accuracies[i] + 0.02, f"{task2_accuracies[i]:.3f}", ha="center")
-    plt.text(i + width/2, test_accuracies[i] + 0.02, f"{test_accuracies[i]:.3f}", ha="center")
+    plt.text(
+        i - width / 2,
+        task2_accuracies[i] + 0.02,
+        f"{task2_accuracies[i]:.3f}",
+        ha="center",
+    )
+    plt.text(
+        i + width / 2,
+        test_accuracies[i] + 0.02,
+        f"{test_accuracies[i]:.3f}",
+        ha="center",
+    )
 
 plt.subplot(1, 2, 2)
 plt.bar(["Task 2", "Task 3"], [task2_seq, seq_acc])
@@ -225,8 +255,10 @@ save_figure("accuracy_comparison.png")
 # - CONFUSION MATRICES
 # Generate confusion matrices for each digit classifier
 plt.figure(figsize=(15, 5))
-for i, (y_true, y_pred) in enumerate(zip([y_test_d1, y_test_d2, y_test_d3], predictions)):
-    plt.subplot(1, 3, i+1)
+for i, (y_true, y_pred) in enumerate(
+    zip([y_test_d1, y_test_d2, y_test_d3], predictions)
+):
+    plt.subplot(1, 3, i + 1)
     cm = confusion_matrix(y_true, y_pred)
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
     plt.title(f"Confusion Matrix - {digit_names[i]}")

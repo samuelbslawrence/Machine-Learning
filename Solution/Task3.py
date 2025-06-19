@@ -31,7 +31,6 @@ save_dir = os.path.join(script_dir, "Task 3")
 os.makedirs(save_dir, exist_ok=True)
 
 # - UTILITY FUNCTIONS
-# Save figure to Task 3 directory with standard print confirmation
 def save_figure(filename):
     path = os.path.join(save_dir, filename)
     plt.savefig(path)
@@ -42,7 +41,6 @@ def save_figure(filename):
 def extract_digits(label):
     return tuple(int(d) for d in label)
 
-# Split a single 84x84 image into three 28x84 vertical slices (one for each digit)
 def split_image(img):
     return img[:, :28], img[:, 28:56], img[:, 56:]
 

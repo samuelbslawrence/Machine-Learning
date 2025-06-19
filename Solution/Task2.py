@@ -34,6 +34,7 @@ os.makedirs(save_dir, exist_ok=True)
 # - LOAD TRAINING DATA
 # Extract the individual digits from the directory name
 print("\n- LOADING DATA")
+
 def extract_digits(label):
     return tuple(map(int, label))
 

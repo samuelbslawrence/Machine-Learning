@@ -11,7 +11,9 @@ script_dir = os.path.abspath(os.path.dirname(__file__))
 while os.path.basename(script_dir) != "Machine-Learning":
     parent = os.path.dirname(script_dir)
     if parent == script_dir:
-        raise FileNotFoundError("Could not locate 'Machine-Learning' directory in path tree.")
+        raise FileNotFoundError(
+            "Could not locate 'Machine-Learning' directory in path tree."
+        )
     script_dir = parent
 
 # Define dataset and save directories
@@ -28,19 +30,25 @@ os.makedirs(save_dir, exist_ok=True)
 # Load grayscale images and corresponding labels from directory structure
 def load_data(directory):
     images, labels = [], []
-    label_dirs = [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d))]
+    label_dirs = [
+        d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d))
+    ]
 
     if not label_dirs:
-        print(f"No subdirectories found in {directory}. Please check the directory path.")
+        print(
+            f"No subdirectories found in {directory}. Please check the directory path."
+        )
         return np.array([]), np.array([])
 
     for label in label_dirs:
         path = os.path.join(directory, label)
-        image_paths = glob.glob(os.path.join(path, "*.png")) + glob.glob(os.path.join(path, "*.jpg"))
+        image_paths = glob.glob(os.path.join(path, "*.png")) + glob.glob(
+            os.path.join(path, "*.jpg")
+        )
         for img_path in image_paths:
             img = Image.open(img_path)
-            if img.mode != 'L':
-                img = img.convert('L')
+            if img.mode != "L":
+                img = img.convert("L")
             arr = np.array(img)
             images.append(arr)
             labels.append(label)
@@ -76,9 +84,9 @@ try:
         plt.figure(figsize=(15, 6))
         for i, idx in enumerate(sample_indices):
             plt.subplot(2, 5, i + 1)
-            plt.imshow(train_images[idx], cmap='gray')
+            plt.imshow(train_images[idx], cmap="gray")
             plt.title(f"Label: {train_labels[idx]}")
-            plt.axis('off')
+            plt.axis("off")
         plt.suptitle("Random Samples from Training Data")
         plt.tight_layout()
         plt.subplots_adjust(top=0.88)
@@ -97,9 +105,9 @@ try:
             if len(indices) > 0:
                 idx = indices[0]
                 plt.subplot(1, 5, i + 1)
-                plt.imshow(train_images[idx], cmap='gray')
+                plt.imshow(train_images[idx], cmap="gray")
                 plt.title(f"Label: {train_labels[idx]}")
-                plt.axis('off')
+                plt.axis("off")
 
         plt.suptitle("Selected Samples from Different Classes")
         plt.tight_layout()
@@ -111,4 +119,6 @@ try:
 
 except Exception as e:
     print(f"\nError loading or analyzing dataset: {e}")
-    print("Please check the dataset structure and adjust the loading function if needed.")
+    print(
+        "Please check the dataset structure and adjust the loading function if needed."
+    )

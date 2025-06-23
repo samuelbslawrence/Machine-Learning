@@ -55,7 +55,7 @@ def save_figure(filename):
 plt.figure(figsize=(6, 4))
 plt.plot([1, 2, 3, 4], [1, 4, 2, 3])
 plt.title("Task 5 Started - Save Function Working")
-save_figure("00_save_test.png")
+save_figure("save_test.png")
 
 # - DATA LOADING FUNCTIONS
 def load_images_for_gan(directory, max_samples=5000):
@@ -353,7 +353,7 @@ save_figure("pre_training_samples.png")
 
 # Option to load a pre-trained model
 load_pretrained = True
-pretrained_model_path = os.path.join(output_dir, "Task5_Model.h5")
+pretrained_model_path = os.path.join(output_dir, "gan_generator_model.h5")
 
 if load_pretrained and os.path.exists(pretrained_model_path):
     print("Loading pre-trained GAN model")

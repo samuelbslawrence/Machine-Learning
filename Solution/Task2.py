@@ -165,7 +165,7 @@ def cnn_model():
             layers.Conv2D(128, 3, activation="relu", padding="same"),
             layers.BatchNormalization(),
             layers.MaxPooling2D(2),
-            layers.Flatten(),
+            laylers.Flatten(),
             layers.Dense(128, activation="relu"),
             layers.Dropout(0.5),
             layers.Dense(10, activation="softmax"),

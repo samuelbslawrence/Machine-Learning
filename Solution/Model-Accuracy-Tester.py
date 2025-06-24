@@ -20,7 +20,7 @@ class DigitPredictor:
 
         # Define output directory and model path
         task_dir = os.path.join(script_dir, "Task 5")
-        model_path = os.path.join(task_dir, "Task5_Model.h5")
+        model_path = os.path.join(task_dir, "gan_generator_model.h5")
 
         self.canvas_size = 280
         self.model_input_size = 28
